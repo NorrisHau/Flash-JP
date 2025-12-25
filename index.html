@@ -35,13 +35,18 @@
     <div class="overlay" id="overlay" aria-hidden="true">
       <div class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
         <div class="panel-header">
-          <h2 id="panelTitle">简单词列表</h2>
+          <h2 id="panelTitle">词语列表</h2>
           <button class="panel-close" id="closePanel" aria-label="关闭">✕</button>
         </div>
         <ul class="panel-list" id="easyList"></ul>
+        <div class="panel-footer">
+          <button class="panel-tab active" id="easyTab" type="button">简单词</button>
+          <button class="panel-tab" id="favoriteTab" type="button">收藏词</button>
+        </div>
       </div>
     </div>
 
+    <script src="words.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

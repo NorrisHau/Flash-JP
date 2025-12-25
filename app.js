@@ -1,26 +1,3 @@
-const words = [
-  { id: "sakura", kanji: "桜", kana: "さくら", romaji: "sakura", meaning: "樱花" },
-  { id: "umi", kanji: "海", kana: "うみ", romaji: "umi", meaning: "大海" },
-  { id: "sora", kanji: "空", kana: "そら", romaji: "sora", meaning: "天空" },
-  { id: "hikari", kanji: "光", kana: "ひかり", romaji: "hikari", meaning: "光" },
-  { id: "tabi", kanji: "旅", kana: "たび", romaji: "tabi", meaning: "旅行" },
-  { id: "hoshi", kanji: "星", kana: "ほし", romaji: "hoshi", meaning: "星星" },
-  { id: "kaze", kanji: "風", kana: "かぜ", romaji: "kaze", meaning: "风" },
-  { id: "ame", kanji: "雨", kana: "あめ", romaji: "ame", meaning: "雨" },
-  { id: "yuki", kanji: "雪", kana: "ゆき", romaji: "yuki", meaning: "雪" },
-  { id: "mori", kanji: "森", kana: "もり", romaji: "mori", meaning: "森林" },
-  { id: "hanabi", kanji: "花火", kana: "はなび", romaji: "hanabi", meaning: "烟花" },
-  { id: "yoru", kanji: "夜", kana: "よる", romaji: "yoru", meaning: "夜晚" },
-  { id: "asa", kanji: "朝", kana: "あさ", romaji: "asa", meaning: "清晨" },
-  { id: "yama", kanji: "山", kana: "やま", romaji: "yama", meaning: "山" },
-  { id: "kawa", kanji: "川", kana: "かわ", romaji: "kawa", meaning: "河流" },
-  { id: "michi", kanji: "道", kana: "みち", romaji: "michi", meaning: "道路" },
-  { id: "tomodachi", kanji: "友達", kana: "ともだち", romaji: "tomodachi", meaning: "朋友" },
-  { id: "egao", kanji: "笑顔", kana: "えがお", romaji: "egao", meaning: "笑脸" },
-  { id: "kibou", kanji: "希望", kana: "きぼう", romaji: "kibou", meaning: "希望" },
-  { id: "mirai", kanji: "未来", kana: "みらい", romaji: "mirai", meaning: "未来" },
-];
-
 const wordEl = document.getElementById("word");
 const readingEl = document.getElementById("reading");
 const meaningEl = document.getElementById("meaning");
@@ -35,6 +12,8 @@ const overlayEl = document.getElementById("overlay");
 const easyListEl = document.getElementById("easyList");
 const moreBtn = document.getElementById("moreBtn");
 const closePanel = document.getElementById("closePanel");
+const easyTabBtn = document.getElementById("easyTab");
+const favoriteTabBtn = document.getElementById("favoriteTab");
 
 let index = 0;
 const favorites = new Set(
@@ -49,6 +28,7 @@ let countdown = 20;
 let countdownId = null;
 let studiedCount = Number(localStorage.getItem("studiedCount") || 0);
 let activeWords = words.filter((word) => !easyWords.has(word.id));
+let panelMode = "easy";
 
 const syncStorage = () => {
   localStorage.setItem("favoriteWords", JSON.stringify([...favorites]));
@@ -88,20 +68,64 @@ const showToast = (message) => {
   }, 3000);
 };
 
+const restoreToActive = (wordId) => {
+  const target = words.find((item) => item.id === wordId);
+  if (!target) return;
+  if (easyWords.has(wordId)) {
+    easyWords.delete(wordId);
+  }
+  if (!activeWords.some((item) => item.id === wordId)) {
+    activeWords.push(target);
+  }
+  syncStorage();
+  renderEasyList();
+  render();
+};
+
+const removeFromFavorites = (wordId) => {
+  favorites.delete(wordId);
+  syncStorage();
+  renderEasyList();
+  render();
+};
+
 const renderEasyList = () => {
   easyListEl.innerHTML = "";
-  const items = words.filter((word) => easyWords.has(word.id));
-  if (items.length === 0) {
+  const source = panelMode === "easy"
+    ? words.filter((word) => easyWords.has(word.id))
+    : words.filter((word) => favorites.has(word.id));
+
+  if (source.length === 0) {
     const empty = document.createElement("li");
     empty.className = "panel-item";
-    empty.textContent = "暂无简单词";
+    empty.textContent = panelMode === "easy" ? "暂无简单词" : "暂无收藏词";
     easyListEl.appendChild(empty);
     return;
   }
-  items.forEach((word) => {
+
+  source.forEach((word) => {
     const item = document.createElement("li");
     item.className = "panel-item";
-    item.innerHTML = `${word.kanji} <span>${word.kana} (${word.romaji})</span>`;
+
+    const text = document.createElement("div");
+    text.className = "panel-text";
+    text.textContent = `${word.kanji} ${word.kana} (${word.romaji})`;
+
+    const action = document.createElement("button");
+    action.className = "panel-action";
+    action.type = "button";
+    action.setAttribute("aria-label", "移除");
+    action.textContent = "✕";
+    action.addEventListener("click", () => {
+      if (panelMode === "easy") {
+        restoreToActive(word.id);
+      } else {
+        removeFromFavorites(word.id);
+      }
+    });
+
+    item.appendChild(text);
+    item.appendChild(action);
     easyListEl.appendChild(item);
   });
 };
@@ -254,6 +278,20 @@ overlayEl.addEventListener("click", (event) => {
     overlayEl.classList.remove("show");
     overlayEl.setAttribute("aria-hidden", "true");
   }
+});
+
+easyTabBtn.addEventListener("click", () => {
+  panelMode = "easy";
+  easyTabBtn.classList.add("active");
+  favoriteTabBtn.classList.remove("active");
+  renderEasyList();
+});
+
+favoriteTabBtn.addEventListener("click", () => {
+  panelMode = "favorite";
+  favoriteTabBtn.classList.add("active");
+  easyTabBtn.classList.remove("active");
+  renderEasyList();
 });
 
 let touchStartY = 0;
