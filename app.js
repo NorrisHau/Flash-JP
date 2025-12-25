@@ -5,6 +5,20 @@ const words = [
   { kanji: "光", kana: "ひかり", romaji: "hikari", meaning: "光" },
   { kanji: "旅", kana: "たび", romaji: "tabi", meaning: "旅行" },
   { kanji: "星", kana: "ほし", romaji: "hoshi", meaning: "星星" },
+  { kanji: "風", kana: "かぜ", romaji: "kaze", meaning: "风" },
+  { kanji: "雨", kana: "あめ", romaji: "ame", meaning: "雨" },
+  { kanji: "雪", kana: "ゆき", romaji: "yuki", meaning: "雪" },
+  { kanji: "森", kana: "もり", romaji: "mori", meaning: "森林" },
+  { kanji: "花火", kana: "はなび", romaji: "hanabi", meaning: "烟花" },
+  { kanji: "夜", kana: "よる", romaji: "yoru", meaning: "夜晚" },
+  { kanji: "朝", kana: "あさ", romaji: "asa", meaning: "清晨" },
+  { kanji: "山", kana: "やま", romaji: "yama", meaning: "山" },
+  { kanji: "川", kana: "かわ", romaji: "kawa", meaning: "河流" },
+  { kanji: "道", kana: "みち", romaji: "michi", meaning: "道路" },
+  { kanji: "友達", kana: "ともだち", romaji: "tomodachi", meaning: "朋友" },
+  { kanji: "笑顔", kana: "えがお", romaji: "egao", meaning: "笑脸" },
+  { kanji: "希望", kana: "きぼう", romaji: "kibou", meaning: "希望" },
+  { kanji: "未来", kana: "みらい", romaji: "mirai", meaning: "未来" },
 ];
 
 const wordEl = document.getElementById("word");
@@ -15,16 +29,55 @@ const favoriteBtn = document.getElementById("favoriteBtn");
 const easyBtn = document.getElementById("easyBtn");
 const appEl = document.getElementById("app");
 const cardEl = document.querySelector(".card");
+const timerEl = document.getElementById("timer");
+const toastEl = document.getElementById("toast");
 
 let index = 0;
 const favorites = new Set(JSON.parse(localStorage.getItem("favorites") || "[]"));
 const easyWords = new Set(JSON.parse(localStorage.getItem("easyWords") || "[]"));
+const studyTimes = JSON.parse(localStorage.getItem("studyTimes") || "{}");
 let lastSwipeAt = 0;
 let isAnimating = false;
+let lastSeenAt = Date.now();
+let countdown = 20;
+let countdownId = null;
+let studiedCount = Number(localStorage.getItem("studiedCount") || 0);
 
 const syncStorage = () => {
   localStorage.setItem("favorites", JSON.stringify([...favorites]));
   localStorage.setItem("easyWords", JSON.stringify([...easyWords]));
+  localStorage.setItem("studyTimes", JSON.stringify(studyTimes));
+  localStorage.setItem("studiedCount", String(studiedCount));
+};
+
+const startCountdown = () => {
+  clearInterval(countdownId);
+  countdown = 20;
+  timerEl.textContent = `倒计时 ${countdown}s`;
+  lastSeenAt = Date.now();
+  countdownId = setInterval(() => {
+    countdown -= 1;
+    if (countdown <= 0) {
+      countdown = 0;
+      clearInterval(countdownId);
+    }
+    timerEl.textContent = `倒计时 ${countdown}s`;
+  }, 1000);
+};
+
+const recordStudyTime = () => {
+  const elapsed = Math.max(0, Math.round((Date.now() - lastSeenAt) / 1000));
+  const key = String(index);
+  studyTimes[key] = (studyTimes[key] || 0) + elapsed;
+  syncStorage();
+};
+
+const showToast = (message) => {
+  toastEl.textContent = message;
+  toastEl.classList.add("show");
+  setTimeout(() => {
+    toastEl.classList.remove("show");
+  }, 3000);
 };
 
 const render = () => {
@@ -33,6 +86,7 @@ const render = () => {
   readingEl.textContent = `${word.kana} (${word.romaji})`;
   meaningEl.textContent = word.meaning;
   progressEl.textContent = `${index + 1}/${words.length}`;
+  timerEl.textContent = `倒计时 ${countdown}s`;
 
   const key = String(index);
   favoriteBtn.classList.toggle("active", favorites.has(key));
@@ -55,6 +109,11 @@ const canSwipe = () => {
 const animateToIndex = (nextIndex, direction) => {
   if (!canSwipe()) return;
   isAnimating = true;
+  recordStudyTime();
+  studiedCount += 1;
+  if (studiedCount % 10 === 0) {
+    showToast("已经背诵十个单词，再接再厉🎇");
+  }
 
   const outClass = direction === "down" ? "slide-out-down" : "slide-out-up";
   const inClass = direction === "down" ? "slide-in-down" : "slide-in-up";
@@ -67,6 +126,7 @@ const animateToIndex = (nextIndex, direction) => {
     cardEl.removeEventListener("animationend", handleOut);
     index = nextIndex;
     render();
+    startCountdown();
     cardEl.classList.add(inClass);
     cardEl.addEventListener(
       "animationend",
@@ -140,3 +200,4 @@ appEl.addEventListener("wheel", (event) => {
 });
 
 render();
+startCountdown();
