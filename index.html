@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flash-JP</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app" id="app">
+      <section class="card" aria-live="polite">
+        <div class="word" id="word"></div>
+        <div class="reading" id="reading"></div>
+        <div class="meaning" id="meaning"></div>
+      </section>
+
+      <aside class="actions">
+        <button class="action" id="favoriteBtn" aria-pressed="false">
+          <span class="icon">★</span>
+          <span class="label">收藏</span>
+        </button>
+        <button class="action" id="easyBtn" aria-pressed="false">
+          <span class="icon">✓</span>
+          <span class="label">简单词</span>
+        </button>
+      </aside>
+
+      <div class="progress" id="progress"></div>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
