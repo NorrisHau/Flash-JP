@@ -152,6 +152,19 @@ body {
   z-index: 11;
 }
 
+.counter {
+  position: fixed;
+  top: 20px;
+  left: 18px;
+  font-size: 15px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 6px 12px;
+  border-radius: 999px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  z-index: 11;
+}
+
 .overlay {
   position: fixed;
   inset: 0;
