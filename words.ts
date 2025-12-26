@@ -1,4 +1,12 @@
-const words = [
+export interface Word {
+  id: string;
+  kanji: string;
+  kana: string;
+  romaji: string;
+  meaning: string;
+}
+
+export const words: Word[] = [
   { id: "sakura", kanji: "桜", kana: "さくら", romaji: "sakura", meaning: "樱花" },
   { id: "umi", kanji: "海", kana: "うみ", romaji: "umi", meaning: "大海" },
   { id: "sora", kanji: "空", kana: "そら", romaji: "sora", meaning: "天空" },
