@@ -1,0 +1,9 @@
+{
+  "name": "Flash-JP",
+  "short_name": "Flash-JP",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f6efd9",
+  "theme_color": "#f6efd9",
+  "icons": []
+}

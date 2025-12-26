@@ -10,10 +10,10 @@ const timerEl = document.getElementById("timer");
 const toastEl = document.getElementById("toast");
 const overlayEl = document.getElementById("overlay");
 const easyListEl = document.getElementById("easyList");
-const moreBtn = document.getElementById("moreBtn");
 const closePanel = document.getElementById("closePanel");
 const easyTabBtn = document.getElementById("easyTab");
 const favoriteTabBtn = document.getElementById("favoriteTab");
+const rememberedTabBtn = document.getElementById("rememberedTab");
 const counterEl = document.getElementById("counter");
 
 const GROUP_SIZE = 10;
@@ -52,15 +52,19 @@ let isAnimating = false;
 let lastSeenAt = Date.now();
 let countdown = 20;
 let countdownId = null;
-let panelMode = "easy";
+let panelMode = "remembered";
 
 const favorites = new Set(readCookieJSON("favoriteWords", []));
 const easyWords = new Set(readCookieJSON("easyWords", []));
+const rememberedWords = new Set(readCookieJSON("rememberedWords", []));
 const studyTimes = readCookieJSON("studyTimes", {});
 let studiedCount = Number(getCookie("studiedCount") || 0);
 
-if (!Number.isFinite(studiedCount) || studiedCount < easyWords.size) {
-  studiedCount = easyWords.size;
+const getRememberedCount = () =>
+  new Set([...easyWords, ...rememberedWords]).size;
+
+if (!Number.isFinite(studiedCount) || studiedCount < getRememberedCount()) {
+  studiedCount = getRememberedCount();
 }
 
 const initialState = readCookieJSON("learningState", {
@@ -94,7 +98,9 @@ let groupWords = [];
 let schedule = [];
 
 const rebuildGroupData = () => {
-  groupWords = getGroupWords(groupIndex).filter((word) => !easyWords.has(word.id));
+  groupWords = getGroupWords(groupIndex).filter(
+    (word) => !easyWords.has(word.id) && !rememberedWords.has(word.id),
+  );
   schedule = buildSchedule(groupWords);
   if (scheduleIndex >= schedule.length) {
     scheduleIndex = 0;
@@ -108,8 +114,10 @@ if (scheduleIndex >= schedule.length) {
 }
 
 const syncStorage = () => {
+  studiedCount = getRememberedCount();
   setCookie("favoriteWords", JSON.stringify([...favorites]));
   setCookie("easyWords", JSON.stringify([...easyWords]));
+  setCookie("rememberedWords", JSON.stringify([...rememberedWords]));
   setCookie("studyTimes", JSON.stringify(studyTimes));
   setCookie("studiedCount", String(studiedCount));
   setCookie(
@@ -120,6 +128,7 @@ const syncStorage = () => {
 
 const updateCounter = () => {
   if (!counterEl) return;
+  studiedCount = getRememberedCount();
   counterEl.textContent = `已记 ${studiedCount}`;
 };
 
@@ -163,19 +172,22 @@ const showToast = (message) => {
 
 const updateRemembered = (wordId, remembered) => {
   if (remembered) {
-    if (!easyWords.has(wordId)) {
-      easyWords.add(wordId);
-      studiedCount += 1;
-    }
-  } else if (easyWords.delete(wordId)) {
-    studiedCount = Math.max(0, studiedCount - 1);
+    rememberedWords.add(wordId);
+  } else {
+    rememberedWords.delete(wordId);
   }
   updateCounter();
   syncStorage();
 };
 
-const restoreToActive = (wordId) => {
-  updateRemembered(wordId, false);
+const restoreToActive = (wordId, type = "remembered") => {
+  if (type === "easy") {
+    easyWords.delete(wordId);
+    updateCounter();
+    syncStorage();
+  } else {
+    updateRemembered(wordId, false);
+  }
   rebuildGroupData();
   renderEasyList();
   render();
@@ -190,15 +202,25 @@ const removeFromFavorites = (wordId) => {
 
 const renderEasyList = () => {
   easyListEl.innerHTML = "";
-  const source =
-    panelMode === "easy"
-      ? words.filter((word) => easyWords.has(word.id))
-      : words.filter((word) => favorites.has(word.id));
+  let source = [];
+  if (panelMode === "remembered") {
+    source = words.filter((word) => rememberedWords.has(word.id));
+  } else if (panelMode === "easy") {
+    source = words.filter((word) => easyWords.has(word.id));
+  } else {
+    source = words.filter((word) => favorites.has(word.id));
+  }
 
   if (source.length === 0) {
     const empty = document.createElement("li");
     empty.className = "panel-item";
-    empty.textContent = panelMode === "easy" ? "暂无简单词" : "暂无收藏词";
+    if (panelMode === "remembered") {
+      empty.textContent = "暂无已记词";
+    } else if (panelMode === "easy") {
+      empty.textContent = "暂无简单词";
+    } else {
+      empty.textContent = "暂无收藏词";
+    }
     easyListEl.appendChild(empty);
     return;
   }
@@ -217,10 +239,10 @@ const renderEasyList = () => {
     action.setAttribute("aria-label", "移除");
     action.textContent = "✕";
     action.addEventListener("click", () => {
-      if (panelMode === "easy") {
-        restoreToActive(word.id);
-      } else {
+      if (panelMode === "favorite") {
         removeFromFavorites(word.id);
+      } else {
+        restoreToActive(word.id, panelMode);
       }
     });
 
@@ -281,7 +303,9 @@ const checkGroupCompletion = () => {
 
 const handleAutoRemember = () => {
   const word = schedule[scheduleIndex];
-  if (!word || easyWords.has(word.id)) return false;
+  if (!word || easyWords.has(word.id) || rememberedWords.has(word.id)) {
+    return false;
+  }
   const seenCount = appearanceCounts[word.id] || 0;
   if (seenCount < REQUIRED_APPEARANCES) return false;
   updateRemembered(word.id, true);
@@ -408,14 +432,18 @@ easyBtn.addEventListener("click", () => {
   if (!word) return;
 
   if (easyWords.has(word.id)) {
-    updateRemembered(word.id, false);
+    easyWords.delete(word.id);
+    updateCounter();
+    syncStorage();
     rebuildGroupData();
     renderEasyList();
     render();
     return;
   }
 
-  updateRemembered(word.id, true);
+  easyWords.add(word.id);
+  updateCounter();
+  syncStorage();
   favorites.delete(word.id);
   rebuildGroupData();
   spawnParticles();
@@ -427,12 +455,6 @@ easyBtn.addEventListener("click", () => {
   }
 
   checkGroupCompletion();
-});
-
-moreBtn.addEventListener("click", () => {
-  renderEasyList();
-  overlayEl.classList.add("show");
-  overlayEl.setAttribute("aria-hidden", "false");
 });
 
 closePanel.addEventListener("click", () => {
@@ -447,25 +469,28 @@ overlayEl.addEventListener("click", (event) => {
   }
 });
 
-easyTabBtn.addEventListener("click", () => {
-  panelMode = "easy";
-  easyTabBtn.classList.add("active");
-  favoriteTabBtn.classList.remove("active");
+const setPanelMode = (mode) => {
+  panelMode = mode;
+  rememberedTabBtn.classList.toggle("active", mode === "remembered");
+  easyTabBtn.classList.toggle("active", mode === "easy");
+  favoriteTabBtn.classList.toggle("active", mode === "favorite");
   renderEasyList();
+};
+
+rememberedTabBtn.addEventListener("click", () => {
+  setPanelMode("remembered");
+});
+
+easyTabBtn.addEventListener("click", () => {
+  setPanelMode("easy");
 });
 
 favoriteTabBtn.addEventListener("click", () => {
-  panelMode = "favorite";
-  favoriteTabBtn.classList.add("active");
-  easyTabBtn.classList.remove("active");
-  renderEasyList();
+  setPanelMode("favorite");
 });
 
 counterEl.addEventListener("click", () => {
-  panelMode = "easy";
-  easyTabBtn.classList.add("active");
-  favoriteTabBtn.classList.remove("active");
-  renderEasyList();
+  setPanelMode("remembered");
   overlayEl.classList.add("show");
   overlayEl.setAttribute("aria-hidden", "false");
 });
@@ -503,3 +528,30 @@ if (groupWords.length === 0) {
 render();
 renderEasyList();
 startCountdown();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js");
+  });
+}
+
+let deferredInstallPrompt = null;
+const getTodayKey = () => new Date().toISOString().split("T")[0];
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  const lastPrompt = getCookie("installPromptDate");
+  const today = getTodayKey();
+  if (lastPrompt === today) return;
+  setCookie("installPromptDate", today);
+  setTimeout(async () => {
+    if (!deferredInstallPrompt) return;
+    const shouldInstall = window.confirm("添加到主屏幕，获得更好的记忆体验？");
+    if (shouldInstall) {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+    }
+    deferredInstallPrompt = null;
+  }, 600);
+});

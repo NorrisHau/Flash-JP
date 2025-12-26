@@ -139,19 +139,6 @@ body {
   transform: translateX(-50%) translateY(6px);
 }
 
-.more-btn {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 22px;
-  padding: 6px 10px;
-  cursor: pointer;
-  z-index: 11;
-}
-
 .counter {
   position: fixed;
   top: 20px;
