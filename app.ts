@@ -1,9 +1,9 @@
-import { words, type Word } from "./words.js";
+import { words, type Word } from "./words";
 import {
   defaultProductData,
   type CardMode,
   type CardRevealState,
-} from "./data_structures.js";
+} from "./data_structures";
 
 const getEl = <T extends HTMLElement>(id: string) => {
   const element = document.getElementById(id);
@@ -615,7 +615,7 @@ startCountdown();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("build/sw.js");
+    navigator.serviceWorker.register("/sw.js");
   });
 }
 
