@@ -90,8 +90,18 @@ const buildSchedule = (groupWords) => {
   return schedule;
 };
 
-let groupWords = getGroupWords(groupIndex);
-let schedule = buildSchedule(groupWords);
+let groupWords = [];
+let schedule = [];
+
+const rebuildGroupData = () => {
+  groupWords = getGroupWords(groupIndex).filter((word) => !easyWords.has(word.id));
+  schedule = buildSchedule(groupWords);
+  if (scheduleIndex >= schedule.length) {
+    scheduleIndex = 0;
+  }
+};
+
+rebuildGroupData();
 
 if (scheduleIndex >= schedule.length) {
   scheduleIndex = 0;
@@ -166,6 +176,7 @@ const updateRemembered = (wordId, remembered) => {
 
 const restoreToActive = (wordId) => {
   updateRemembered(wordId, false);
+  rebuildGroupData();
   renderEasyList();
   render();
 };
@@ -241,25 +252,29 @@ const spawnParticles = () => {
 
 const advanceGroup = () => {
   if ((groupIndex + 1) * GROUP_SIZE >= words.length) {
+    schedule = [];
+    groupWords = [];
+    syncStorage();
+    render();
     showToast("已完成全部分组");
     return;
   }
   groupIndex += 1;
   scheduleIndex = 0;
   appearanceCounts = {};
-  groupWords = getGroupWords(groupIndex);
-  schedule = buildSchedule(groupWords);
+  rebuildGroupData();
   currentWordId = null;
   syncStorage();
   render();
   startCountdown();
   showToast(`进入第 ${groupIndex + 1} 组`);
+  if (groupWords.length === 0) {
+    advanceGroup();
+  }
 };
 
 const checkGroupCompletion = () => {
-  if (groupWords.length === 0) return;
-  const allRemembered = groupWords.every((word) => easyWords.has(word.id));
-  if (allRemembered) {
+  if (groupWords.length === 0) {
     advanceGroup();
   }
 };
@@ -382,6 +397,7 @@ easyBtn.addEventListener("click", () => {
 
   updateRemembered(word.id, true);
   favorites.delete(word.id);
+  rebuildGroupData();
   spawnParticles();
   renderEasyList();
   render();
@@ -452,6 +468,9 @@ appEl.addEventListener("wheel", (event) => {
 });
 
 updateCounter();
+if (groupWords.length === 0) {
+  checkGroupCompletion();
+}
 render();
 renderEasyList();
 startCountdown();
