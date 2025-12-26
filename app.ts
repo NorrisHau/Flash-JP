@@ -1,9 +1,9 @@
-import { words, type Word } from "./words.ts";
+import { words, type Word } from "./words.js";
 import {
   defaultProductData,
   type CardMode,
   type CardRevealState,
-} from "./data_structures.ts";
+} from "./data_structures.js";
 
 const getEl = <T extends HTMLElement>(id: string) => {
   const element = document.getElementById(id);
@@ -72,7 +72,7 @@ let lastSwipeAt = 0;
 let isAnimating = false;
 let lastSeenAt = Date.now();
 let countdown = 20;
-let countdownId: ReturnType<typeof setInterval> | null = null;
+let countdownId: ReturnType<typeof setInterval> | undefined;
 let panelMode: "remembered" | "easy" | "favorite" = "remembered";
 
 const favorites = new Set<string>(readCookieJSON<string[]>("favoriteWords", []));
@@ -163,7 +163,9 @@ const updateCounter = () => {
 };
 
 const startCountdown = () => {
-  clearInterval(countdownId);
+  if (countdownId !== undefined) {
+    clearInterval(countdownId);
+  }
   countdown = 20;
   timerEl.textContent = `倒计时 ${countdown}s`;
   lastSeenAt = Date.now();
@@ -171,7 +173,9 @@ const startCountdown = () => {
     countdown -= 1;
     if (countdown <= 0) {
       countdown = 0;
-      clearInterval(countdownId);
+      if (countdownId !== undefined) {
+        clearInterval(countdownId);
+      }
     }
     timerEl.textContent = `倒计时 ${countdown}s`;
   }, 1000);
@@ -416,11 +420,11 @@ const render = () => {
   timerEl.textContent = `倒计时 ${countdown}s`;
 
   favoriteBtn.classList.toggle("active", favorites.has(word.id));
-  favoriteBtn.setAttribute("aria-pressed", favorites.has(word.id));
+  favoriteBtn.setAttribute("aria-pressed", String(favorites.has(word.id)));
 
   easyBtn.classList.toggle("active", easyWords.has(word.id));
   easyBtn.classList.toggle("easy", easyWords.has(word.id));
-  easyBtn.setAttribute("aria-pressed", easyWords.has(word.id));
+  easyBtn.setAttribute("aria-pressed", String(easyWords.has(word.id)));
 
   recordAppearance(word.id);
 };
@@ -434,7 +438,7 @@ const canSwipe = () => {
   return true;
 };
 
-const animateToIndex = (direction) => {
+const animateToIndex = (direction: "up" | "down") => {
   if (!canSwipe()) return;
   isAnimating = true;
   recordStudyTime();
@@ -545,7 +549,7 @@ overlayEl.addEventListener("click", (event) => {
   }
 });
 
-const setPanelMode = (mode) => {
+const setPanelMode = (mode: "remembered" | "easy" | "favorite") => {
   panelMode = mode;
   rememberedTabBtn.classList.toggle("active", mode === "remembered");
   easyTabBtn.classList.toggle("active", mode === "easy");
@@ -611,12 +615,17 @@ startCountdown();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.ts");
+    navigator.serviceWorker.register("build/sw.js");
   });
 }
 
-let deferredInstallPrompt = null;
+let deferredInstallPrompt: BeforeInstallPromptEvent | null = null;
 const getTodayKey = () => new Date().toISOString().split("T")[0];
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+}
 
 const shouldShowInstallPrompt = () => {
   const lastPrompt = getCookie("installPromptDate");
@@ -638,7 +647,8 @@ const hideInstallBanner = () => {
 
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
-  deferredInstallPrompt = event;
+  const promptEvent = event as BeforeInstallPromptEvent;
+  deferredInstallPrompt = promptEvent;
   if (shouldShowInstallPrompt()) {
     showInstallBanner();
   }

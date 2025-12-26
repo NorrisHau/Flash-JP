@@ -1,21 +1,25 @@
+/// <reference lib="webworker" />
+
 const CACHE_NAME: string = "flash-jp-v1";
 const ASSETS: string[] = [
   "./",
   "./index.html",
   "./style.css",
-  "./app.ts",
-  "./words.ts",
-  "./data_structures.ts",
+  "./build/app.js",
+  "./build/words.js",
+  "./build/data_structures.js",
   "./manifest.json",
 ];
 
-self.addEventListener("install", (event: ExtendableEvent) => {
+const sw = self as unknown as ServiceWorkerGlobalScope;
+
+sw.addEventListener("install", (event: ExtendableEvent) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)),
   );
 });
 
-self.addEventListener("activate", (event: ExtendableEvent) => {
+sw.addEventListener("activate", (event: ExtendableEvent) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
@@ -27,7 +31,7 @@ self.addEventListener("activate", (event: ExtendableEvent) => {
   );
 });
 
-self.addEventListener("fetch", (event: FetchEvent) => {
+sw.addEventListener("fetch", (event: FetchEvent) => {
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request)),
   );
