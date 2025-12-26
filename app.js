@@ -10,31 +10,129 @@ const timerEl = document.getElementById("timer");
 const toastEl = document.getElementById("toast");
 const overlayEl = document.getElementById("overlay");
 const easyListEl = document.getElementById("easyList");
-const moreBtn = document.getElementById("moreBtn");
 const closePanel = document.getElementById("closePanel");
 const easyTabBtn = document.getElementById("easyTab");
 const favoriteTabBtn = document.getElementById("favoriteTab");
+const rememberedTabBtn = document.getElementById("rememberedTab");
+const counterEl = document.getElementById("counter");
+const installBannerEl = document.getElementById("installBanner");
+const installBtn = document.getElementById("installBtn");
+const installCloseBtn = document.getElementById("installClose");
 
-let index = 0;
-const favorites = new Set(
-  JSON.parse(localStorage.getItem("favoriteWords") || "[]"),
-);
-const easyWords = new Set(JSON.parse(localStorage.getItem("easyWords") || "[]"));
-const studyTimes = JSON.parse(localStorage.getItem("studyTimes") || "{}");
+const GROUP_SIZE = 10;
+const REQUIRED_APPEARANCES = 3;
+const COOKIE_DAYS = 365;
+
+const getCookie = (name) => {
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${name}=`));
+  if (!cookie) return "";
+  return decodeURIComponent(cookie.split("=").slice(1).join("="));
+};
+
+const setCookie = (name, value, days = COOKIE_DAYS) => {
+  const maxAge = days * 24 * 60 * 60;
+  document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${maxAge}; path=/`;
+};
+
+const readCookieJSON = (name, fallback) => {
+  const raw = getCookie(name);
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    return fallback;
+  }
+};
+
+let scheduleIndex = 0;
+let groupIndex = 0;
+let appearanceCounts = {};
+let currentWordId = null;
 let lastSwipeAt = 0;
 let isAnimating = false;
 let lastSeenAt = Date.now();
 let countdown = 20;
 let countdownId = null;
-let studiedCount = Number(localStorage.getItem("studiedCount") || 0);
-let activeWords = words.filter((word) => !easyWords.has(word.id));
-let panelMode = "easy";
+let panelMode = "remembered";
+
+const favorites = new Set(readCookieJSON("favoriteWords", []));
+const easyWords = new Set(readCookieJSON("easyWords", []));
+const rememberedWords = new Set(readCookieJSON("rememberedWords", []));
+const studyTimes = readCookieJSON("studyTimes", {});
+let studiedCount = Number(getCookie("studiedCount") || 0);
+
+const getRememberedCount = () =>
+  new Set([...easyWords, ...rememberedWords]).size;
+
+if (!Number.isFinite(studiedCount) || studiedCount < getRememberedCount()) {
+  studiedCount = getRememberedCount();
+}
+
+const initialState = readCookieJSON("learningState", {
+  groupIndex: 0,
+  scheduleIndex: 0,
+  appearanceCounts: {},
+});
+
+groupIndex = Number.isFinite(initialState.groupIndex)
+  ? initialState.groupIndex
+  : 0;
+
+scheduleIndex = Number.isFinite(initialState.scheduleIndex)
+  ? initialState.scheduleIndex
+  : 0;
+
+appearanceCounts = initialState.appearanceCounts || {};
+
+const getGroupWords = (targetIndex) =>
+  words.slice(targetIndex * GROUP_SIZE, targetIndex * GROUP_SIZE + GROUP_SIZE);
+
+const buildSchedule = (groupWords) => {
+  const schedule = [];
+  for (let round = 0; round < REQUIRED_APPEARANCES; round += 1) {
+    groupWords.forEach((word) => schedule.push(word));
+  }
+  return schedule;
+};
+
+let groupWords = [];
+let schedule = [];
+
+const rebuildGroupData = () => {
+  groupWords = getGroupWords(groupIndex).filter(
+    (word) => !easyWords.has(word.id) && !rememberedWords.has(word.id),
+  );
+  schedule = buildSchedule(groupWords);
+  if (scheduleIndex >= schedule.length) {
+    scheduleIndex = 0;
+  }
+};
+
+rebuildGroupData();
+
+if (scheduleIndex >= schedule.length) {
+  scheduleIndex = 0;
+}
 
 const syncStorage = () => {
-  localStorage.setItem("favoriteWords", JSON.stringify([...favorites]));
-  localStorage.setItem("easyWords", JSON.stringify([...easyWords]));
-  localStorage.setItem("studyTimes", JSON.stringify(studyTimes));
-  localStorage.setItem("studiedCount", String(studiedCount));
+  studiedCount = getRememberedCount();
+  setCookie("favoriteWords", JSON.stringify([...favorites]));
+  setCookie("easyWords", JSON.stringify([...easyWords]));
+  setCookie("rememberedWords", JSON.stringify([...rememberedWords]));
+  setCookie("studyTimes", JSON.stringify(studyTimes));
+  setCookie("studiedCount", String(studiedCount));
+  setCookie(
+    "learningState",
+    JSON.stringify({ groupIndex, scheduleIndex, appearanceCounts }),
+  );
+};
+
+const updateCounter = () => {
+  if (!counterEl) return;
+  studiedCount = getRememberedCount();
+  counterEl.textContent = `已记 ${studiedCount}`;
 };
 
 const startCountdown = () => {
@@ -54,9 +152,16 @@ const startCountdown = () => {
 
 const recordStudyTime = () => {
   const elapsed = Math.max(0, Math.round((Date.now() - lastSeenAt) / 1000));
-  const word = activeWords[index];
+  const word = schedule[scheduleIndex];
   if (!word) return;
   studyTimes[word.id] = (studyTimes[word.id] || 0) + elapsed;
+  syncStorage();
+};
+
+const recordAppearance = (wordId) => {
+  if (!wordId || currentWordId === wordId) return;
+  currentWordId = wordId;
+  appearanceCounts[wordId] = (appearanceCounts[wordId] || 0) + 1;
   syncStorage();
 };
 
@@ -68,16 +173,25 @@ const showToast = (message) => {
   }, 3000);
 };
 
-const restoreToActive = (wordId) => {
-  const target = words.find((item) => item.id === wordId);
-  if (!target) return;
-  if (easyWords.has(wordId)) {
-    easyWords.delete(wordId);
+const updateRemembered = (wordId, remembered) => {
+  if (remembered) {
+    rememberedWords.add(wordId);
+  } else {
+    rememberedWords.delete(wordId);
   }
-  if (!activeWords.some((item) => item.id === wordId)) {
-    activeWords.push(target);
-  }
+  updateCounter();
   syncStorage();
+};
+
+const restoreToActive = (wordId, type = "remembered") => {
+  if (type === "easy") {
+    easyWords.delete(wordId);
+    updateCounter();
+    syncStorage();
+  } else {
+    updateRemembered(wordId, false);
+  }
+  rebuildGroupData();
   renderEasyList();
   render();
 };
@@ -91,14 +205,25 @@ const removeFromFavorites = (wordId) => {
 
 const renderEasyList = () => {
   easyListEl.innerHTML = "";
-  const source = panelMode === "easy"
-    ? words.filter((word) => easyWords.has(word.id))
-    : words.filter((word) => favorites.has(word.id));
+  let source = [];
+  if (panelMode === "remembered") {
+    source = words.filter((word) => rememberedWords.has(word.id));
+  } else if (panelMode === "easy") {
+    source = words.filter((word) => easyWords.has(word.id));
+  } else {
+    source = words.filter((word) => favorites.has(word.id));
+  }
 
   if (source.length === 0) {
     const empty = document.createElement("li");
     empty.className = "panel-item";
-    empty.textContent = panelMode === "easy" ? "暂无简单词" : "暂无收藏词";
+    if (panelMode === "remembered") {
+      empty.textContent = "暂无已记词";
+    } else if (panelMode === "easy") {
+      empty.textContent = "暂无简单词";
+    } else {
+      empty.textContent = "暂无收藏词";
+    }
     easyListEl.appendChild(empty);
     return;
   }
@@ -117,10 +242,10 @@ const renderEasyList = () => {
     action.setAttribute("aria-label", "移除");
     action.textContent = "✕";
     action.addEventListener("click", () => {
-      if (panelMode === "easy") {
-        restoreToActive(word.id);
-      } else {
+      if (panelMode === "favorite") {
         removeFromFavorites(word.id);
+      } else {
+        restoreToActive(word.id, panelMode);
       }
     });
 
@@ -150,13 +275,56 @@ const spawnParticles = () => {
   }
 };
 
+const advanceGroup = () => {
+  if ((groupIndex + 1) * GROUP_SIZE >= words.length) {
+    schedule = [];
+    groupWords = [];
+    syncStorage();
+    render();
+    showToast("已完成全部分组");
+    return;
+  }
+  groupIndex += 1;
+  scheduleIndex = 0;
+  appearanceCounts = {};
+  rebuildGroupData();
+  currentWordId = null;
+  syncStorage();
+  render();
+  startCountdown();
+  showToast(`进入第 ${groupIndex + 1} 组`);
+  if (groupWords.length === 0) {
+    advanceGroup();
+  }
+};
+
+const checkGroupCompletion = () => {
+  if (groupWords.length === 0) {
+    advanceGroup();
+  }
+};
+
+const handleAutoRemember = () => {
+  const word = schedule[scheduleIndex];
+  if (!word || easyWords.has(word.id) || rememberedWords.has(word.id)) {
+    return false;
+  }
+  const seenCount = appearanceCounts[word.id] || 0;
+  if (seenCount < REQUIRED_APPEARANCES) return false;
+  updateRemembered(word.id, true);
+  favorites.delete(word.id);
+  rebuildGroupData();
+  checkGroupCompletion();
+  return true;
+};
+
 const render = () => {
-  const word = activeWords[index];
+  const word = schedule[scheduleIndex];
   if (!word) {
     wordEl.textContent = "已完成";
-    readingEl.textContent = "请在更多中查看简单词";
+    readingEl.textContent = "所有分组已学习完成";
     meaningEl.textContent = "";
-    progressEl.textContent = `0/${words.length}`;
+    progressEl.textContent = "0/0";
     timerEl.textContent = `倒计时 ${countdown}s`;
     favoriteBtn.classList.remove("active");
     easyBtn.classList.remove("active", "easy");
@@ -168,7 +336,10 @@ const render = () => {
   wordEl.textContent = word.kanji;
   readingEl.textContent = `${word.kana} (${word.romaji})`;
   meaningEl.textContent = word.meaning;
-  progressEl.textContent = `${index + 1}/${activeWords.length}`;
+
+  const positionInGroup =
+    groupWords.findIndex((item) => item.id === word.id) + 1;
+  progressEl.textContent = `第 ${groupIndex + 1} 组 ${positionInGroup}/${groupWords.length}`;
   timerEl.textContent = `倒计时 ${countdown}s`;
 
   favoriteBtn.classList.toggle("active", favorites.has(word.id));
@@ -177,6 +348,8 @@ const render = () => {
   easyBtn.classList.toggle("active", easyWords.has(word.id));
   easyBtn.classList.toggle("easy", easyWords.has(word.id));
   easyBtn.setAttribute("aria-pressed", easyWords.has(word.id));
+
+  recordAppearance(word.id);
 };
 
 const canSwipe = () => {
@@ -188,13 +361,24 @@ const canSwipe = () => {
   return true;
 };
 
-const animateToIndex = (nextIndex, direction) => {
+const animateToIndex = (direction) => {
   if (!canSwipe()) return;
   isAnimating = true;
   recordStudyTime();
-  studiedCount += 1;
-  if (studiedCount % 10 === 0) {
-    showToast("已经背诵十个单词，再接再厉🎇");
+  const removed = handleAutoRemember();
+  if (schedule.length === 0) {
+    isAnimating = false;
+    render();
+    return;
+  }
+
+  let nextIndex = scheduleIndex;
+  if (direction === "up") {
+    nextIndex = removed
+      ? scheduleIndex % schedule.length
+      : (scheduleIndex + 1) % schedule.length;
+  } else {
+    nextIndex = (scheduleIndex - 1 + schedule.length) % schedule.length;
   }
 
   const outClass = direction === "down" ? "slide-out-down" : "slide-out-up";
@@ -206,7 +390,8 @@ const animateToIndex = (nextIndex, direction) => {
   const handleOut = () => {
     cardEl.classList.remove(outClass);
     cardEl.removeEventListener("animationend", handleOut);
-    index = nextIndex;
+    scheduleIndex = nextIndex;
+    syncStorage();
     render();
     startCountdown();
     cardEl.classList.add(inClass);
@@ -224,19 +409,17 @@ const animateToIndex = (nextIndex, direction) => {
 };
 
 const nextWord = () => {
-  if (activeWords.length === 0) return;
-  const nextIndex = (index + 1) % activeWords.length;
-  animateToIndex(nextIndex, "up");
+  if (schedule.length === 0) return;
+  animateToIndex("up");
 };
 
 const prevWord = () => {
-  if (activeWords.length === 0) return;
-  const prevIndex = (index - 1 + activeWords.length) % activeWords.length;
-  animateToIndex(prevIndex, "down");
+  if (schedule.length === 0) return;
+  animateToIndex("down");
 };
 
 favoriteBtn.addEventListener("click", () => {
-  const word = activeWords[index];
+  const word = schedule[scheduleIndex];
   if (!word) return;
   if (favorites.has(word.id)) {
     favorites.delete(word.id);
@@ -248,24 +431,33 @@ favoriteBtn.addEventListener("click", () => {
 });
 
 easyBtn.addEventListener("click", () => {
-  const word = activeWords[index];
+  const word = schedule[scheduleIndex];
   if (!word) return;
-  easyWords.add(word.id);
-  favorites.delete(word.id);
-  activeWords = activeWords.filter((item) => item.id !== word.id);
-  spawnParticles();
-  if (index >= activeWords.length) {
-    index = Math.max(0, activeWords.length - 1);
+
+  if (easyWords.has(word.id)) {
+    easyWords.delete(word.id);
+    updateCounter();
+    syncStorage();
+    rebuildGroupData();
+    renderEasyList();
+    render();
+    return;
   }
+
+  easyWords.add(word.id);
+  updateCounter();
   syncStorage();
+  favorites.delete(word.id);
+  rebuildGroupData();
+  spawnParticles();
   renderEasyList();
   render();
-});
 
-moreBtn.addEventListener("click", () => {
-  renderEasyList();
-  overlayEl.classList.add("show");
-  overlayEl.setAttribute("aria-hidden", "false");
+  if (studiedCount % 10 === 0) {
+    showToast("已经记住十个单词，再接再厉🎇");
+  }
+
+  checkGroupCompletion();
 });
 
 closePanel.addEventListener("click", () => {
@@ -280,18 +472,30 @@ overlayEl.addEventListener("click", (event) => {
   }
 });
 
-easyTabBtn.addEventListener("click", () => {
-  panelMode = "easy";
-  easyTabBtn.classList.add("active");
-  favoriteTabBtn.classList.remove("active");
+const setPanelMode = (mode) => {
+  panelMode = mode;
+  rememberedTabBtn.classList.toggle("active", mode === "remembered");
+  easyTabBtn.classList.toggle("active", mode === "easy");
+  favoriteTabBtn.classList.toggle("active", mode === "favorite");
   renderEasyList();
+};
+
+rememberedTabBtn.addEventListener("click", () => {
+  setPanelMode("remembered");
+});
+
+easyTabBtn.addEventListener("click", () => {
+  setPanelMode("easy");
 });
 
 favoriteTabBtn.addEventListener("click", () => {
-  panelMode = "favorite";
-  favoriteTabBtn.classList.add("active");
-  easyTabBtn.classList.remove("active");
-  renderEasyList();
+  setPanelMode("favorite");
+});
+
+counterEl.addEventListener("click", () => {
+  setPanelMode("remembered");
+  overlayEl.classList.add("show");
+  overlayEl.setAttribute("aria-hidden", "false");
 });
 
 let touchStartY = 0;
@@ -320,6 +524,74 @@ appEl.addEventListener("wheel", (event) => {
   }
 });
 
+updateCounter();
+if (groupWords.length === 0) {
+  checkGroupCompletion();
+}
 render();
 renderEasyList();
 startCountdown();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js");
+  });
+}
+
+let deferredInstallPrompt = null;
+const getTodayKey = () => new Date().toISOString().split("T")[0];
+
+const shouldShowInstallPrompt = () => {
+  const lastPrompt = getCookie("installPromptDate");
+  const today = getTodayKey();
+  if (lastPrompt === today) return false;
+  setCookie("installPromptDate", today);
+  return true;
+};
+
+const showInstallBanner = () => {
+  if (!installBannerEl) return;
+  installBannerEl.classList.add("show");
+};
+
+const hideInstallBanner = () => {
+  if (!installBannerEl) return;
+  installBannerEl.classList.remove("show");
+};
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  if (shouldShowInstallPrompt()) {
+    showInstallBanner();
+  }
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  hideInstallBanner();
+});
+
+if (installCloseBtn) {
+  installCloseBtn.addEventListener("click", () => {
+    hideInstallBanner();
+  });
+}
+
+if (installBtn) {
+  installBtn.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) {
+      showToast("请使用浏览器菜单中的“添加到主屏幕”进行安装");
+      hideInstallBanner();
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    hideInstallBanner();
+  });
+}
+
+if (shouldShowInstallPrompt()) {
+  showInstallBanner();
+}
