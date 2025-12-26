@@ -279,6 +279,18 @@ const checkGroupCompletion = () => {
   }
 };
 
+const handleAutoRemember = () => {
+  const word = schedule[scheduleIndex];
+  if (!word || easyWords.has(word.id)) return false;
+  const seenCount = appearanceCounts[word.id] || 0;
+  if (seenCount < REQUIRED_APPEARANCES) return false;
+  updateRemembered(word.id, true);
+  favorites.delete(word.id);
+  rebuildGroupData();
+  checkGroupCompletion();
+  return true;
+};
+
 const render = () => {
   const word = schedule[scheduleIndex];
   if (!word) {
@@ -322,10 +334,25 @@ const canSwipe = () => {
   return true;
 };
 
-const animateToIndex = (nextIndex, direction) => {
+const animateToIndex = (direction) => {
   if (!canSwipe()) return;
   isAnimating = true;
   recordStudyTime();
+  const removed = handleAutoRemember();
+  if (schedule.length === 0) {
+    isAnimating = false;
+    render();
+    return;
+  }
+
+  let nextIndex = scheduleIndex;
+  if (direction === "up") {
+    nextIndex = removed
+      ? scheduleIndex % schedule.length
+      : (scheduleIndex + 1) % schedule.length;
+  } else {
+    nextIndex = (scheduleIndex - 1 + schedule.length) % schedule.length;
+  }
 
   const outClass = direction === "down" ? "slide-out-down" : "slide-out-up";
   const inClass = direction === "down" ? "slide-in-down" : "slide-in-up";
@@ -356,14 +383,12 @@ const animateToIndex = (nextIndex, direction) => {
 
 const nextWord = () => {
   if (schedule.length === 0) return;
-  const nextIndex = (scheduleIndex + 1) % schedule.length;
-  animateToIndex(nextIndex, "up");
+  animateToIndex("up");
 };
 
 const prevWord = () => {
   if (schedule.length === 0) return;
-  const prevIndex = (scheduleIndex - 1 + schedule.length) % schedule.length;
-  animateToIndex(prevIndex, "down");
+  animateToIndex("down");
 };
 
 favoriteBtn.addEventListener("click", () => {
@@ -381,17 +406,12 @@ favoriteBtn.addEventListener("click", () => {
 easyBtn.addEventListener("click", () => {
   const word = schedule[scheduleIndex];
   if (!word) return;
-  const seenCount = appearanceCounts[word.id] || 0;
 
   if (easyWords.has(word.id)) {
     updateRemembered(word.id, false);
+    rebuildGroupData();
     renderEasyList();
     render();
-    return;
-  }
-
-  if (seenCount < REQUIRED_APPEARANCES) {
-    showToast(`还需要再看 ${REQUIRED_APPEARANCES - seenCount} 次`);
     return;
   }
 
@@ -439,6 +459,15 @@ favoriteTabBtn.addEventListener("click", () => {
   favoriteTabBtn.classList.add("active");
   easyTabBtn.classList.remove("active");
   renderEasyList();
+});
+
+counterEl.addEventListener("click", () => {
+  panelMode = "easy";
+  easyTabBtn.classList.add("active");
+  favoriteTabBtn.classList.remove("active");
+  renderEasyList();
+  overlayEl.classList.add("show");
+  overlayEl.setAttribute("aria-hidden", "false");
 });
 
 let touchStartY = 0;
