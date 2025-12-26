@@ -15,6 +15,9 @@ const easyTabBtn = document.getElementById("easyTab");
 const favoriteTabBtn = document.getElementById("favoriteTab");
 const rememberedTabBtn = document.getElementById("rememberedTab");
 const counterEl = document.getElementById("counter");
+const installBannerEl = document.getElementById("installBanner");
+const installBtn = document.getElementById("installBtn");
+const installCloseBtn = document.getElementById("installClose");
 
 const GROUP_SIZE = 10;
 const REQUIRED_APPEARANCES = 3;
@@ -538,20 +541,57 @@ if ("serviceWorker" in navigator) {
 let deferredInstallPrompt = null;
 const getTodayKey = () => new Date().toISOString().split("T")[0];
 
+const shouldShowInstallPrompt = () => {
+  const lastPrompt = getCookie("installPromptDate");
+  const today = getTodayKey();
+  if (lastPrompt === today) return false;
+  setCookie("installPromptDate", today);
+  return true;
+};
+
+const showInstallBanner = () => {
+  if (!installBannerEl) return;
+  installBannerEl.classList.add("show");
+};
+
+const hideInstallBanner = () => {
+  if (!installBannerEl) return;
+  installBannerEl.classList.remove("show");
+};
+
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
   deferredInstallPrompt = event;
-  const lastPrompt = getCookie("installPromptDate");
-  const today = getTodayKey();
-  if (lastPrompt === today) return;
-  setCookie("installPromptDate", today);
-  setTimeout(async () => {
-    if (!deferredInstallPrompt) return;
-    const shouldInstall = window.confirm("添加到主屏幕，获得更好的记忆体验？");
-    if (shouldInstall) {
-      deferredInstallPrompt.prompt();
-      await deferredInstallPrompt.userChoice;
-    }
-    deferredInstallPrompt = null;
-  }, 600);
+  if (shouldShowInstallPrompt()) {
+    showInstallBanner();
+  }
 });
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  hideInstallBanner();
+});
+
+if (installCloseBtn) {
+  installCloseBtn.addEventListener("click", () => {
+    hideInstallBanner();
+  });
+}
+
+if (installBtn) {
+  installBtn.addEventListener("click", async () => {
+    if (!deferredInstallPrompt) {
+      showToast("请使用浏览器菜单中的“添加到主屏幕”进行安装");
+      hideInstallBanner();
+      return;
+    }
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    hideInstallBanner();
+  });
+}
+
+if (shouldShowInstallPrompt()) {
+  showInstallBanner();
+}

@@ -9,6 +9,13 @@
     <meta name="theme-color" content="#f6efd9" />
   </head>
   <body>
+    <div class="holiday-glow" aria-hidden="true"></div>
+    <div class="snow" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
     <main class="app" id="app">
       <button class="counter" id="counter" type="button">已记 0</button>
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -46,6 +53,17 @@
           <button class="panel-tab" id="easyTab" type="button">简单词</button>
           <button class="panel-tab" id="favoriteTab" type="button">收藏词</button>
         </div>
+      </div>
+    </div>
+
+    <div class="install-banner" id="installBanner" role="dialog" aria-live="polite">
+      <div class="install-text">
+        <strong>安装到桌面</strong>
+        <span>每天第一次进入可一键安装，学习更沉浸</span>
+      </div>
+      <div class="install-actions">
+        <button class="install-btn" id="installBtn" type="button">安装</button>
+        <button class="install-close" id="installClose" type="button" aria-label="关闭">以后再说</button>
       </div>
     </div>
 

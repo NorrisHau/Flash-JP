@@ -25,6 +25,64 @@ body {
   overflow: hidden;
 }
 
+.holiday-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 15% 10%, rgba(214, 64, 64, 0.12), transparent 45%),
+    radial-gradient(circle at 85% 20%, rgba(70, 140, 90, 0.12), transparent 40%),
+    radial-gradient(circle at 50% 80%, rgba(255, 255, 255, 0.18), transparent 55%);
+  mix-blend-mode: screen;
+  z-index: 1;
+}
+
+.snow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.snow span {
+  position: absolute;
+  top: -10%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  filter: blur(0.2px);
+  animation: snowFall linear infinite;
+}
+
+.snow span:nth-child(1) { left: 6%; animation-duration: 12s; animation-delay: -2s; transform: scale(0.9); }
+.snow span:nth-child(2) { left: 12%; animation-duration: 16s; animation-delay: -5s; transform: scale(0.6); }
+.snow span:nth-child(3) { left: 20%; animation-duration: 14s; animation-delay: -8s; transform: scale(1.1); }
+.snow span:nth-child(4) { left: 28%; animation-duration: 18s; animation-delay: -3s; transform: scale(0.7); }
+.snow span:nth-child(5) { left: 36%; animation-duration: 15s; animation-delay: -6s; transform: scale(1.2); }
+.snow span:nth-child(6) { left: 44%; animation-duration: 13s; animation-delay: -9s; transform: scale(0.8); }
+.snow span:nth-child(7) { left: 52%; animation-duration: 17s; animation-delay: -4s; transform: scale(1); }
+.snow span:nth-child(8) { left: 60%; animation-duration: 19s; animation-delay: -7s; transform: scale(0.6); }
+.snow span:nth-child(9) { left: 68%; animation-duration: 14s; animation-delay: -10s; transform: scale(1.1); }
+.snow span:nth-child(10) { left: 76%; animation-duration: 16s; animation-delay: -1s; transform: scale(0.9); }
+.snow span:nth-child(11) { left: 82%; animation-duration: 20s; animation-delay: -6s; transform: scale(0.7); }
+.snow span:nth-child(12) { left: 90%; animation-duration: 15s; animation-delay: -9s; transform: scale(1.1); }
+.snow span:nth-child(13) { left: 4%; animation-duration: 21s; animation-delay: -12s; transform: scale(0.5); }
+.snow span:nth-child(14) { left: 24%; animation-duration: 13s; animation-delay: -11s; transform: scale(0.8); }
+.snow span:nth-child(15) { left: 42%; animation-duration: 22s; animation-delay: -13s; transform: scale(0.6); }
+.snow span:nth-child(16) { left: 58%; animation-duration: 12s; animation-delay: -8s; transform: scale(1); }
+.snow span:nth-child(17) { left: 66%; animation-duration: 18s; animation-delay: -14s; transform: scale(0.7); }
+.snow span:nth-child(18) { left: 74%; animation-duration: 16s; animation-delay: -10s; transform: scale(0.9); }
+.snow span:nth-child(19) { left: 88%; animation-duration: 14s; animation-delay: -5s; transform: scale(0.8); }
+.snow span:nth-child(20) { left: 96%; animation-duration: 19s; animation-delay: -3s; transform: scale(0.6); }
+
+.app,
+.overlay,
+.install-banner {
+  position: relative;
+  z-index: 3;
+}
+
 .app {
   position: relative;
   height: 100vh;
@@ -158,6 +216,62 @@ body {
   transform: scale(0.98);
 }
 
+.install-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(360px, 90vw);
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 13;
+}
+
+.install-banner.show {
+  display: flex;
+}
+
+.install-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.install-text strong {
+  font-size: 15px;
+}
+
+.install-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.install-btn {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.install-close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -268,6 +382,20 @@ body {
   background: rgba(208, 165, 84, 0.9);
   pointer-events: none;
   animation: particleFade 0.6s ease forwards;
+}
+
+@keyframes snowFall {
+  0% {
+    transform: translateY(-10vh) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) translateX(20px);
+    opacity: 0.8;
+  }
 }
 
 @keyframes particleFade {
