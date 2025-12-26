@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flash-JP</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app" id="app">
+      <button class="more-btn" id="moreBtn" aria-label="更多">···</button>
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+      <section class="card" aria-live="polite">
+        <div class="word" id="word"></div>
+        <div class="reading" id="reading"></div>
+        <div class="meaning" id="meaning"></div>
+      </section>
+
+      <aside class="actions">
+        <button class="action" id="favoriteBtn" aria-pressed="false">
+          <span class="icon">★</span>
+          <span class="label">收藏</span>
+        </button>
+        <button class="action" id="easyBtn" aria-pressed="false">
+          <span class="icon">✓</span>
+          <span class="label">简单词</span>
+        </button>
+      </aside>
+
+      <div class="progress" id="progress"></div>
+      <div class="timer" id="timer"></div>
+    </main>
+
+    <div class="overlay" id="overlay" aria-hidden="true">
+      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+        <div class="panel-header">
+          <h2 id="panelTitle">词语列表</h2>
+          <button class="panel-close" id="closePanel" aria-label="关闭">✕</button>
+        </div>
+        <ul class="panel-list" id="easyList"></ul>
+        <div class="panel-footer">
+          <button class="panel-tab active" id="easyTab" type="button">简单词</button>
+          <button class="panel-tab" id="favoriteTab" type="button">收藏词</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="words.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
