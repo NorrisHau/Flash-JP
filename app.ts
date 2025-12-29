@@ -36,6 +36,10 @@ const counterEl = getEl<HTMLButtonElement>("counter");
 const installBannerEl = getEl<HTMLDivElement>("installBanner");
 const installBtn = getEl<HTMLButtonElement>("installBtn");
 const installCloseBtn = getEl<HTMLButtonElement>("installClose");
+const guideOverlayEl = getEl<HTMLDivElement>("guideOverlay");
+const guideTitleEl = getEl<HTMLDivElement>("guideTitle");
+const guideBodyEl = getEl<HTMLDivElement>("guideBody");
+const guideNextBtn = getEl<HTMLButtonElement>("guideNext");
 
 const GROUP_SIZE = 10;
 const REQUIRED_APPEARANCES = 3;
@@ -681,4 +685,56 @@ if (installBtn) {
 
 if (shouldShowInstallPrompt()) {
   showInstallBanner();
+}
+
+const guideSteps = [
+  {
+    title: "上下滑动",
+    body: "向上或向下滑动，切换下一个或上一个单词。",
+  },
+  {
+    title: "点击单词变换",
+    body: "点击卡片可逐步展示假名、汉字与释义。",
+  },
+  {
+    title: "查看列表",
+    body: "点击左上角“已记”，查看记忆列表与词语状态。",
+  },
+];
+
+let guideStepIndex = 0;
+const GUIDE_COOKIE = "guideSeen";
+
+const renderGuideStep = () => {
+  const step = guideSteps[guideStepIndex];
+  guideTitleEl.textContent = step.title;
+  guideBodyEl.textContent = step.body;
+  guideNextBtn.textContent =
+    guideStepIndex === guideSteps.length - 1 ? "完成" : "下一步";
+};
+
+const showGuide = () => {
+  guideStepIndex = 0;
+  renderGuideStep();
+  guideOverlayEl.classList.add("show");
+  guideOverlayEl.setAttribute("aria-hidden", "false");
+};
+
+const hideGuide = () => {
+  guideOverlayEl.classList.remove("show");
+  guideOverlayEl.setAttribute("aria-hidden", "true");
+  setCookie(GUIDE_COOKIE, "1");
+};
+
+guideNextBtn.addEventListener("click", () => {
+  if (guideStepIndex >= guideSteps.length - 1) {
+    hideGuide();
+    return;
+  }
+  guideStepIndex += 1;
+  renderGuideStep();
+});
+
+if (!getCookie(GUIDE_COOKIE)) {
+  showGuide();
 }
